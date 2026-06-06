@@ -1,9 +1,12 @@
+import os
+import redis
 from flask import Flask
-import requests
 
 app = Flask(__name__)
 
-WORKER_URL = "http://worker:5001/process"
+# Added a way to connect to Redis using the hostname defined in docker-compose
+redis_host = os.environ.get("REDIS_HOST", "redis")
+r = redis.Redis(host=redis_host, port=6379, decode_responses=True)
 
 @app.route("/")
 def home():
@@ -12,9 +15,11 @@ def home():
 @app.route("/task")
 def send_task():
     try:
-        r = requests.get(WORKER_URL)
-        return f"Worker response: {r.text}"
+        # Push a task to the Redis list (queue)
+        r.lpush("task_queue", "Run worker task")
+        return "Task successfully sent to Redis queue!"
     except Exception as e:
-        return f"Error contacting worker: {str(e)}"
+        return f"Error contacting Redis: {str(e)}"
 
-app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
